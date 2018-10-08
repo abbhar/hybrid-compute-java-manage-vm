@@ -1,13 +1,8 @@
-## [project-title] Changelog
+## Hybrid-Compute-Java-Manage-VM Changelog
 
-<a name="x.y.z"></a>
-# x.y.z (yyyy-mm-dd)
+<a name="1.0.0"></a>
+# 1.0.0 (2018-10-08)
 
 *Features*
-* ...
+* Manage Compute Vm sample for hybrid clouds (Eg. AzureStack)
 
-*Bug Fixes*
-* ...
-
-*Breaking Changes*
-* ...
