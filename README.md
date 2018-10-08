@@ -9,14 +9,12 @@ author: viananth
 
   Azure Compute sample for managing virtual machines -
    - Create a virtual machine
-   - Start a virtual machine
-   - Stop a virtual machine
-   - Restart a virtual machine
    - Update a virtual machine
      - Tag a virtual machine 
      - Attach data disks
      - Detach data disks
-   - List virtual machines
+   - Restart a virtual machine
+   - Stop(Poweroff) virtual machine
    - Delete a virtual machine.
 
 
