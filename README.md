@@ -1,5 +1,5 @@
 ---
-services: Compute
+services: Azure Stack
 platforms: java
 author: viananth
 ---
