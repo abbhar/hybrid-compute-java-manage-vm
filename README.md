@@ -4,7 +4,7 @@ platforms: java
 author: viananth
 ---
 
-## Getting Started with Compute - Manage Virtual Machine - in Java ##
+# Hybrid-Compute-Java-Manage-VM #
 
 
   Azure Compute sample for managing virtual machines -
