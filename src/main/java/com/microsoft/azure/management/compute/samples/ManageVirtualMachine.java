@@ -179,7 +179,7 @@ public final class ManageVirtualMachine {
                     .withPublisher("Canonical")
                     .withOffer("UbuntuServer")
                     .withSku("16.04-LTS")
-                    .withVersion("1.0.0"));
+                    .withVersion("latest"));
 
             // OS disk
             //
