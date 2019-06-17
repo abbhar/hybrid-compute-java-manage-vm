@@ -15,21 +15,21 @@ import java.util.List;
 import com.microsoft.azure.AzureEnvironment;
 import com.microsoft.azure.credentials.ApplicationTokenCredentials;
 import com.microsoft.azure.credentials.AzureTokenCredentials;
-import com.microsoft.azure.management.compute.v2017_03_30.CachingTypes;
-import com.microsoft.azure.management.compute.v2017_03_30.DataDisk;
-import com.microsoft.azure.management.compute.v2017_03_30.DiskCreateOptionTypes;
-import com.microsoft.azure.management.compute.v2017_03_30.HardwareProfile;
-import com.microsoft.azure.management.compute.v2017_03_30.ImageReference;
-import com.microsoft.azure.management.compute.v2017_03_30.LinuxConfiguration;
-import com.microsoft.azure.management.compute.v2017_03_30.NetworkInterfaceReference;
-import com.microsoft.azure.management.compute.v2017_03_30.NetworkProfile;
-import com.microsoft.azure.management.compute.v2017_03_30.OSDisk;
-import com.microsoft.azure.management.compute.v2017_03_30.OSProfile;
-import com.microsoft.azure.management.compute.v2017_03_30.OperatingSystemTypes;
-import com.microsoft.azure.management.compute.v2017_03_30.StorageProfile;
-import com.microsoft.azure.management.compute.v2017_03_30.VirtualHardDisk;
-import com.microsoft.azure.management.compute.v2017_03_30.VirtualMachine;
-import com.microsoft.azure.management.compute.v2017_03_30.VirtualMachineSizeTypes;
+import com.microsoft.azure.management.compute.v2017_12_01.CachingTypes;
+import com.microsoft.azure.management.compute.v2017_12_01.DataDisk;
+import com.microsoft.azure.management.compute.v2017_12_01.DiskCreateOptionTypes;
+import com.microsoft.azure.management.compute.v2017_12_01.HardwareProfile;
+import com.microsoft.azure.management.compute.v2017_12_01.ImageReference;
+import com.microsoft.azure.management.compute.v2017_12_01.LinuxConfiguration;
+import com.microsoft.azure.management.compute.v2017_12_01.NetworkInterfaceReference;
+import com.microsoft.azure.management.compute.v2017_12_01.NetworkProfile;
+import com.microsoft.azure.management.compute.v2017_12_01.OSDisk;
+import com.microsoft.azure.management.compute.v2017_12_01.OSProfile;
+import com.microsoft.azure.management.compute.v2017_12_01.OperatingSystemTypes;
+import com.microsoft.azure.management.compute.v2017_12_01.StorageProfile;
+import com.microsoft.azure.management.compute.v2017_12_01.VirtualHardDisk;
+import com.microsoft.azure.management.compute.v2017_12_01.VirtualMachine;
+import com.microsoft.azure.management.compute.v2017_12_01.VirtualMachineSizeTypes;
 import com.microsoft.azure.management.network.v2017_10_01.AddressSpace;
 import com.microsoft.azure.management.network.v2017_10_01.IPAllocationMethod;
 import com.microsoft.azure.management.network.v2017_10_01.IPVersion;
@@ -39,13 +39,14 @@ import com.microsoft.azure.management.network.v2017_10_01.PublicIPAddressDnsSett
 import com.microsoft.azure.management.network.v2017_10_01.Subnet;
 import com.microsoft.azure.management.network.v2017_10_01.VirtualNetwork;
 import com.microsoft.azure.management.network.v2017_10_01.implementation.NetworkInterfaceIPConfigurationInner;
-import com.microsoft.azure.management.profile_2018_03_01_hybrid.Azure;
-import com.microsoft.azure.management.resources.v2018_02_01.ResourceGroup;
+import com.microsoft.azure.management.profile_2019_03_01_hybrid.Azure;
+import com.microsoft.azure.management.resources.v2018_05_01.ResourceGroup;
 import com.microsoft.azure.management.samples.Utils;
-import com.microsoft.azure.management.storage.v2016_01_01.Kind;
-import com.microsoft.azure.management.storage.v2016_01_01.Sku;
-import com.microsoft.azure.management.storage.v2016_01_01.SkuName;
-import com.microsoft.azure.management.storage.v2016_01_01.StorageAccount;
+import com.microsoft.azure.management.storage.v2017_10_01.Sku;
+import com.microsoft.azure.management.storage.v2017_10_01.Kind;
+import com.microsoft.azure.management.storage.v2017_10_01.SkuName;
+import com.microsoft.azure.management.storage.v2017_10_01.StorageAccount;
+import com.microsoft.azure.management.storage.v2017_10_01.implementation.SkuInner;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
@@ -71,7 +72,6 @@ public final class ManageVirtualMachine {
      * @return true if sample runs successfully
      */
     public static boolean manageVm(Azure azure, String location) {
-        final String windowsVMName = Utils.createRandomName("wVM");
         final String linuxVMName = Utils.createRandomName("lVM");
         final String rgName = Utils.createRandomName("rgCOMV");
         final String saName = Utils.createRandomName("sa");
@@ -95,6 +95,8 @@ public final class ManageVirtualMachine {
                     .withExistingSubscription()
                     .withLocation(location)
                     .create();
+            System.out.println("Resource Group created: " + rgName);
+            Utils.print(resourceGroup);
 
             // Create a Storage Account
             //
@@ -102,9 +104,11 @@ public final class ManageVirtualMachine {
                     .withRegion(location)
                     .withExistingResourceGroup(rgName)
                     .withKind(Kind.STORAGE)
-                    .withSku(new Sku().withName(SkuName.STANDARD_LRS))
+                    .withSku(new SkuInner().withName(SkuName.STANDARD_LRS))
                     .create();
-
+            System.out.println("Storage Account created: " + saName);
+            Utils.print(storageAccount);
+             
             // Create virtual network
             //
             List<String> addressPrefixes = new ArrayList<>();
@@ -114,6 +118,7 @@ public final class ManageVirtualMachine {
                     .withExistingResourceGroup(rgName)
                     .withAddressSpace(new AddressSpace().withAddressPrefixes(addressPrefixes))
                     .create();
+            System.out.println("Virtual network created: " + networkName);
 
             // Create subnet in the virtual network
             //
@@ -131,6 +136,7 @@ public final class ManageVirtualMachine {
                     .withPublicIPAddressVersion(IPVersion.IPV4)
                     .withDnsSettings(new PublicIPAddressDnsSettings().withDomainNameLabel(domainNameLabel))
                     .create();
+            System.out.println("Public IP Address created: " + pipName);
 
             // Create a network interface
             //
@@ -149,6 +155,7 @@ public final class ManageVirtualMachine {
                     .withExistingResourceGroup(rgName)
                     .withIpConfigurations(ipConfigs)
                     .create();
+            System.out.println("Network Interface created: " + nicName);
 
             // VM Hardware profile
             //

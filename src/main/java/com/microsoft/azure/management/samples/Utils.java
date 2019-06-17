@@ -28,12 +28,12 @@ import com.microsoft.azure.management.batchai.AzureFileShareReference;
 import com.microsoft.azure.management.batchai.BatchAICluster;
 import com.microsoft.azure.management.batchai.BatchAIJob;
 import com.microsoft.azure.management.compute.AvailabilitySet;
-import com.microsoft.azure.management.compute.v2017_03_30.DataDisk;
-import com.microsoft.azure.management.compute.v2017_03_30.NetworkInterfaceReference;
+import com.microsoft.azure.management.compute.v2017_12_01.DataDisk;
+import com.microsoft.azure.management.compute.v2017_12_01.NetworkInterfaceReference;
 import com.microsoft.azure.management.compute.ImageDataDisk;
-import com.microsoft.azure.management.compute.v2017_03_30.VirtualMachine;
+import com.microsoft.azure.management.compute.v2017_12_01.VirtualMachine;
 import com.microsoft.azure.management.compute.VirtualMachineCustomImage;
-import com.microsoft.azure.management.compute.v2017_03_30.VirtualMachineExtension;
+import com.microsoft.azure.management.compute.v2017_12_01.VirtualMachineExtension;
 import com.microsoft.azure.management.containerinstance.Container;
 import com.microsoft.azure.management.containerinstance.ContainerGroup;
 import com.microsoft.azure.management.containerinstance.ContainerPort;
@@ -132,7 +132,7 @@ import com.microsoft.azure.management.redis.RedisAccessKeys;
 import com.microsoft.azure.management.redis.RedisCache;
 import com.microsoft.azure.management.redis.RedisCachePremium;
 import com.microsoft.azure.management.redis.ScheduleEntry;
-import com.microsoft.azure.management.resources.ResourceGroup;
+import com.microsoft.azure.management.resources.v2018_05_01.ResourceGroup;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
 import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
 import com.microsoft.azure.management.search.AdminKeys;
@@ -161,10 +161,10 @@ import com.microsoft.azure.management.sql.SqlServer;
 import com.microsoft.azure.management.sql.SqlServerKey;
 import com.microsoft.azure.management.sql.SqlSubscriptionUsageMetric;
 import com.microsoft.azure.management.sql.SqlVirtualNetworkRule;
-import com.microsoft.azure.management.storage.StorageAccount;
-import com.microsoft.azure.management.storage.StorageAccountEncryptionStatus;
-import com.microsoft.azure.management.storage.StorageAccountKey;
-import com.microsoft.azure.management.storage.StorageService;
+import com.microsoft.azure.management.storage.v2017_10_01.StorageAccount;
+import com.microsoft.azure.management.storage.v2017_10_01.Encryption;
+import com.microsoft.azure.management.storage.v2017_10_01.StorageAccountKey;
+import com.microsoft.azure.management.storage.v2017_10_01.Services;
 import com.microsoft.azure.management.trafficmanager.TrafficManagerAzureEndpoint;
 import com.microsoft.azure.management.trafficmanager.TrafficManagerExternalEndpoint;
 import com.microsoft.azure.management.trafficmanager.TrafficManagerNestedProfileEndpoint;
@@ -203,7 +203,7 @@ public final class Utils {
         StringBuilder info = new StringBuilder();
         info.append("Resource Group: ").append(resource.id())
                 .append("\n\tName: ").append(resource.name())
-                .append("\n\tRegion: ").append(resource.region())
+                .append("\n\tRegion: ").append(resource.location())
                 .append("\n\tTags: ").append(resource.tags());
         System.out.println(info.toString());
     }
@@ -543,40 +543,12 @@ public final class Utils {
                 .append("Name: ").append(storageAccount.name())
                 .append("\n\tResource group: ").append(storageAccount.resourceGroupName())
                 .append("\n\tRegion: ").append(storageAccount.region())
-                .append("\n\tSKU: ").append(storageAccount.skuType().name().toString())
+                .append("\n\tSKU: ").append(storageAccount.sku().name().toString())
                 .append("\n\tAccessTier: ").append(storageAccount.accessTier())
                 .append("\n\tKind: ").append(storageAccount.kind());
 
-        info.append("\n\tNetwork Rule Configuration: ")
-                .append("\n\t\tAllow reading logs from any network: ").append(storageAccount.canReadLogEntriesFromAnyNetwork())
-                .append("\n\t\tAllow reading metrics from any network: ").append(storageAccount.canReadMetricsFromAnyNetwork())
-                .append("\n\t\tAllow access from all azure services: ").append(storageAccount.canAccessFromAzureServices());
 
-        if (storageAccount.networkSubnetsWithAccess().size() > 0) {
-            info.append("\n\t\tNetwork subnets with access: ");
-            for (String subnetId : storageAccount.networkSubnetsWithAccess()) {
-                info.append("\n\t\t\t").append(subnetId);
-            }
-        }
-        if (storageAccount.ipAddressesWithAccess().size() > 0) {
-            info.append("\n\t\tIP addresses with access: ");
-            for (String ipAddress : storageAccount.ipAddressesWithAccess()) {
-                info.append("\n\t\t\t").append(ipAddress);
-            }
-        }
-        if (storageAccount.ipAddressRangesWithAccess().size() > 0) {
-            info.append("\n\t\tIP address-ranges with access: ");
-            for (String ipAddressRange : storageAccount.ipAddressRangesWithAccess()) {
-                info.append("\n\t\t\t").append(ipAddressRange);
-            }
-        }
         info.append("\n\t\tTraffic allowed from only HTTPS: ").append(storageAccount.inner().enableHttpsTrafficOnly());
-
-        info.append("\n\tEncryption status: ");
-        for (Map.Entry<StorageService, StorageAccountEncryptionStatus> eStatus : storageAccount.encryptionStatuses().entrySet()) {
-            info.append("\n\t\t").append(eStatus.getValue().storageService()).append(": ").append(eStatus.getValue().isEnabled() ? "Enabled" : "Disabled");
-        }
-
         System.out.println(info.toString());
     }
 
