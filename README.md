@@ -1,7 +1,11 @@
 ---
-services: Azure-Stack
-platforms: java
-author: viananth
+page_type: sample
+languages:
+- java
+products:
+- azure
+description: "Azure Compute sample for managing virtual machines"
+urlFragment: hybrid-compute-java-manage-vm
 ---
 
 # Hybrid-Compute-Java-Manage-VM #
