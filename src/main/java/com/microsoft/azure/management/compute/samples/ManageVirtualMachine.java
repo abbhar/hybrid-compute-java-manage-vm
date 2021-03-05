@@ -7,10 +7,8 @@
 package com.microsoft.azure.management.compute.samples;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.*;
 
 import com.microsoft.azure.AzureEnvironment;
 import com.microsoft.azure.credentials.ApplicationTokenCredentials;
@@ -42,12 +40,12 @@ import com.microsoft.azure.management.network.v2017_10_01.implementation.Network
 import com.microsoft.azure.management.profile_2019_03_01_hybrid.Azure;
 import com.microsoft.azure.management.resources.v2018_05_01.ResourceGroup;
 import com.microsoft.azure.management.samples.Utils;
-import com.microsoft.azure.management.storage.v2017_10_01.Sku;
 import com.microsoft.azure.management.storage.v2017_10_01.Kind;
 import com.microsoft.azure.management.storage.v2017_10_01.SkuName;
 import com.microsoft.azure.management.storage.v2017_10_01.StorageAccount;
 import com.microsoft.azure.management.storage.v2017_10_01.implementation.SkuInner;
 
+import com.microsoft.rest.ServiceFuture;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
@@ -64,6 +62,8 @@ import org.json.JSONObject;
  * - Detach data disks - List virtual machines - Delete a virtual machine.
  */
 public final class ManageVirtualMachine {
+
+    private static VMCreationCallBack<VirtualMachine> VMCreationCallBack = new VMCreationCallBack();
 
     /**
      * Main function which runs the actual sample.
@@ -108,207 +108,174 @@ public final class ManageVirtualMachine {
                     .create();
             System.out.println("Storage Account created: " + saName);
             Utils.print(storageAccount);
-             
-            // Create virtual network
-            //
-            List<String> addressPrefixes = new ArrayList<>();
-            addressPrefixes.add("10.0.0.0/28");
-            VirtualNetwork virtualNetwork = azure.virtualNetworks().define(networkName)
-                    .withRegion(location)
-                    .withExistingResourceGroup(rgName)
-                    .withAddressSpace(new AddressSpace().withAddressPrefixes(addressPrefixes))
-                    .create();
-            System.out.println("Virtual network created: " + networkName);
 
-            // Create subnet in the virtual network
-            //
-            Subnet subnet = azure.subnets().define(subnetName)
-                    .withExistingVirtualNetwork(rgName, networkName)
-                    .withAddressPrefix("10.0.0.0/28")
-                    .create();
 
-            // Create a public address
-            //
-            PublicIPAddress publicIPAddress = azure.publicIPAddresses().define(pipName)
-                    .withRegion(location)
-                    .withExistingResourceGroup(rgName)
-                    .withPublicIPAllocationMethod(IPAllocationMethod.DYNAMIC)
-                    .withPublicIPAddressVersion(IPVersion.IPV4)
-                    .withDnsSettings(new PublicIPAddressDnsSettings().withDomainNameLabel(domainNameLabel))
-                    .create();
-            System.out.println("Public IP Address created: " + pipName);
 
-            // Create a network interface
-            //
-            List<NetworkInterfaceIPConfigurationInner> ipConfigs = new ArrayList<>();
-            ipConfigs.add(new NetworkInterfaceIPConfigurationInner()
-                    .withName("primary")
-                    .withPrimary(true)
-                    .withPrivateIPAddressVersion(IPVersion.IPV4)
-                    .withPrivateIPAllocationMethod(IPAllocationMethod.DYNAMIC)
-                    .withPublicIPAddress(publicIPAddress.inner())
-                    .withSubnet(subnet.inner()));
 
-            NetworkInterface networkInterface = azure.networkInterfaces()
-                    .defineNetworkInterface(nicName)
-                    .withRegion(location)
-                    .withExistingResourceGroup(rgName)
-                    .withIpConfigurations(ipConfigs)
-                    .create();
-            System.out.println("Network Interface created: " + nicName);
 
-            // VM Hardware profile
-            //
-            HardwareProfile vmHardwareProfile = new HardwareProfile().withVmSize(VirtualMachineSizeTypes.STANDARD_A2);
+            int workerCount = 3;
+            // ExecutorService executor = Executors.newFixedThreadPool(5);
+            // Collection<Callable<VirtualMachine>> tasks = new ArrayList<>();
 
-            // VM OS Profile
-            //
-            OSProfile vmOsProfile = new OSProfile()
-                    .withAdminUsername(userName)
-                    .withAdminPassword(password)
-                    .withLinuxConfiguration(new LinuxConfiguration().withDisablePasswordAuthentication(false))
-                    .withComputerName("testlinux");
-
-            // VM Network profile
-            //
-            final NetworkProfile vmNetworkProfile = new NetworkProfile()
-                    .withNetworkInterfaces(new ArrayList<NetworkInterfaceReference>());
-
-            NetworkInterfaceReference nicReference = new NetworkInterfaceReference();
-            nicReference.withPrimary(true);
-            nicReference.withId(networkInterface.id());
-            vmNetworkProfile.networkInterfaces().add(nicReference);
-
-            // VM Storage profile
-            //
-            StorageProfile vmStorageProfile = new StorageProfile();
-            vmStorageProfile.withImageReference(new ImageReference()
-                    .withPublisher("Canonical")
-                    .withOffer("UbuntuServer")
-                    .withSku("16.04-LTS")
-                    .withVersion("latest"));
-
-            // OS disk
-            //
-            final String osDiskName = "osDisk1";
-            final String osDiskVhdName = osDiskName + ".vhd"; 
-            final String osDiskVhdUri = storageAccount.primaryEndpoints().blob() + "test" + "/" + osDiskVhdName;
-            vmStorageProfile.withOsDisk(new OSDisk());
-            vmStorageProfile.osDisk().withCaching(CachingTypes.READ_WRITE);
-            vmStorageProfile.osDisk().withOsType(OperatingSystemTypes.LINUX); 
-            vmStorageProfile.osDisk().withCreateOption(DiskCreateOptionTypes.FROM_IMAGE);
-            vmStorageProfile.osDisk().withName(osDiskName);
-            vmStorageProfile.osDisk().withVhd(new VirtualHardDisk().withUri(osDiskVhdUri));
-
-            // Data disks
-            //
-            final String dataDiskName = "datadisk1";
-            final String dataDiskVhdName = dataDiskName + ".vhd"; 
-            final String dataDiskVhdUri = storageAccount.primaryEndpoints().blob() + "test" + "/" + dataDiskVhdName;
-            vmStorageProfile.withDataDisks(new ArrayList<DataDisk>());
-
-            DataDisk lun1Disk = new DataDisk()
-                    .withLun(1)
-                    .withDiskSizeGB(1)
-                    .withCaching(CachingTypes.READ_ONLY)
-                    .withCreateOption(DiskCreateOptionTypes.EMPTY)
-                    .withName(dataDiskName)
-                    .withVhd(new VirtualHardDisk().withUri(dataDiskVhdUri));
-            vmStorageProfile.dataDisks().add(lun1Disk);
+            List<ServiceFuture<VirtualMachine>> createdWorkers = new ArrayList<>();
 
             // Create Linux Vm
-            //
-            Date t1 = new Date();
-            VirtualMachine virtualMachine = azure.virtualMachines().define(linuxVMName)
-                    .withRegion(location)
-                    .withExistingResourceGroup(rgName)
-                    .withHardwareProfile(vmHardwareProfile)
-                    .withOsProfile(vmOsProfile)
-                    .withNetworkProfile(vmNetworkProfile)
-                    .withStorageProfile(vmStorageProfile)
-                    .create();
+            for(int i=0; i< workerCount; i++){
 
-            Date t2 = new Date();
-            System.out.println(
-                    "Created VM: (took " + ((t2.getTime() - t1.getTime()) / 1000) + " seconds) " + virtualMachine.id());
-                    
-            // Print virtual machine details
-            Utils.print(virtualMachine);
+                    //Callable<VirtualMachine> task = () -> {
 
-            // ============================================================= 
-            // Update - Tag the virtual machine
-
-            virtualMachine.update().withTag("who-rocks", "java").withTag("where", "on azure").apply();
-            System.out.println("Tagged VM: " + virtualMachine.id());
+                    Random rand = new Random();
+                    String random = String.valueOf(rand.nextInt(1000));
 
 
-            // ============================================================= 
-            // Update - Add data disk
-            //
-            String newdataDiskName = "dataDisk2";
-            String newdataDiskVhdName = newdataDiskName + ".vhd";
-            String newdataDiskVhdUri = storageAccount.primaryEndpoints().blob() + "test" + "/" + newdataDiskVhdName;
+                    // Create virtual network
+                    //
+                    List<String> addressPrefixes = new ArrayList<>();
+                    addressPrefixes.add("10.0.0.0/28");
+                    VirtualNetwork virtualNetwork = azure.virtualNetworks().define(networkName+random)
+                            .withRegion(location)
+                            .withExistingResourceGroup(rgName)
+                            .withAddressSpace(new AddressSpace().withAddressPrefixes(addressPrefixes))
+                            .create();
+                    System.out.println("Virtual network created: " + networkName+random);
 
-            DataDisk newDisk = new DataDisk()
-                    .withLun(2)
-                    .withDiskSizeGB(1)
-                    .withCaching(CachingTypes.READ_ONLY)
-                    .withCreateOption(DiskCreateOptionTypes.EMPTY)
-                    .withName(newdataDiskName)
-                    .withVhd(new VirtualHardDisk().withUri(newdataDiskVhdUri));
-            
-            vmStorageProfile.dataDisks().add(newDisk);
-            virtualMachine.update()
-                    .withStorageProfile(vmStorageProfile)
-                    .apply();
+                    // Create subnet in the virtual network
+                    //
+                    Subnet subnet = azure.subnets().define(subnetName+random)
+                            .withExistingVirtualNetwork(rgName, networkName+random)
+                            .withAddressPrefix("10.0.0.0/28")
+                            .create();
 
-            System.out.println("Added a data disk to VM" + virtualMachine.id());
-            Utils.print(virtualMachine);
+                    // Create a public address
+                    //
+                    PublicIPAddress publicIPAddress = azure.publicIPAddresses().define(pipName+random)
+                            .withRegion(location)
+                            .withExistingResourceGroup(rgName)
+                            .withPublicIPAllocationMethod(IPAllocationMethod.DYNAMIC)
+                            .withPublicIPAddressVersion(IPVersion.IPV4)
+                            .withDnsSettings(new PublicIPAddressDnsSettings().withDomainNameLabel(domainNameLabel+random))
+                            .create();
+                    System.out.println("Public IP Address created: " + pipName+random);
 
-            // ============================================================= 
-            // Update - detach data disk
+                    // Create a network interface
+                    //
+                    List<NetworkInterfaceIPConfigurationInner> ipConfigs = new ArrayList<>();
+                    ipConfigs.add(new NetworkInterfaceIPConfigurationInner()
+                            .withName("primary")
+                            .withPrimary(true)
+                            .withPrivateIPAddressVersion(IPVersion.IPV4)
+                            .withPrivateIPAllocationMethod(IPAllocationMethod.DYNAMIC)
+                            .withPublicIPAddress(publicIPAddress.inner())
+                            .withSubnet(subnet.inner()));
 
-            vmStorageProfile.dataDisks().remove(0);
-            virtualMachine.update()
-                    .withStorageProfile(vmStorageProfile)
-                    .apply();
+                    NetworkInterface networkInterface = azure.networkInterfaces()
+                            .defineNetworkInterface(nicName)
+                            .withRegion(location)
+                            .withExistingResourceGroup(rgName)
+                            .withIpConfigurations(ipConfigs)
+                            .create();
+                    System.out.println("Network Interface created: " + nicName);
 
-            System.out.println("Detached data disk at lun 1 from VM " + virtualMachine.id());
+                    // VM Hardware profile
+                    //
+                    HardwareProfile vmHardwareProfile = new HardwareProfile().withVmSize(VirtualMachineSizeTypes.STANDARD_A2);
 
-            // ============================================================= 
-            // Restart the virtual machine
 
-            System.out.println("Restarting VM: " + virtualMachine.id());
+                    // VM OS Profile
+                    //
+                    OSProfile vmOsProfile = new OSProfile()
+                            .withAdminUsername(userName)
+                            .withAdminPassword(password)
+                            .withLinuxConfiguration(new LinuxConfiguration().withDisablePasswordAuthentication(false))
+                            .withComputerName("testlinux"+ random);
 
-            virtualMachine.manager().virtualMachines().restartAsync(rgName, linuxVMName).toCompletable().await();
+                    // VM Network profile
+                    //
+                    final NetworkProfile vmNetworkProfile = new NetworkProfile()
+                            .withNetworkInterfaces(new ArrayList<NetworkInterfaceReference>());
 
-            System.out.println("Restarted VM: " + virtualMachine.id() + "; state = " + virtualMachine.provisioningState());
+                    NetworkInterfaceReference nicReference = new NetworkInterfaceReference();
+                    nicReference.withPrimary(true);
+                    nicReference.withId(networkInterface.id());
+                    vmNetworkProfile.networkInterfaces().add(nicReference);
 
-            // ============================================================= //
-            // Stop(powerOff) the virtual machine
+                    // VM Storage profile
+                    //
+                    StorageProfile vmStorageProfile = new StorageProfile();
+                    vmStorageProfile.withImageReference(new ImageReference()
+                            .withPublisher("Canonical")
+                            .withOffer("UbuntuServer")
+                            .withSku("16.04-LTS")
+                            .withVersion("latest"));
 
-            System.out.println("Powering OFF VM: " + virtualMachine.id());
+                    // OS disk
+                    //
+                    final String osDiskName = "osDisk1"+random;
+                    final String osDiskVhdName = osDiskName +random+ ".vhd";
+                    final String osDiskVhdUri = storageAccount.primaryEndpoints().blob() + "test" + "/" + osDiskVhdName;
+                    vmStorageProfile.withOsDisk(new OSDisk());
+                    vmStorageProfile.osDisk().withCaching(CachingTypes.READ_WRITE);
+                    vmStorageProfile.osDisk().withOsType(OperatingSystemTypes.LINUX);
+                    vmStorageProfile.osDisk().withCreateOption(DiskCreateOptionTypes.FROM_IMAGE);
+                    vmStorageProfile.osDisk().withName(osDiskName+random);
+                    vmStorageProfile.osDisk().withVhd(new VirtualHardDisk().withUri(osDiskVhdUri));
 
-            virtualMachine.manager().virtualMachines().powerOffAsync(rgName, linuxVMName).toCompletable().await();
+                    // Data disks
+                    //
+                    final String dataDiskName = "datadisk1"+random;
+                    final String dataDiskVhdName = dataDiskName+random + ".vhd";
+                    final String dataDiskVhdUri = storageAccount.primaryEndpoints().blob() + "test" + "/" + dataDiskVhdName;
+                    vmStorageProfile.withDataDisks(new ArrayList<DataDisk>());
 
-            System.out.println("Powered OFF VM: " + virtualMachine.id() + "; state = " + virtualMachine.provisioningState());
+                    DataDisk lun1Disk = new DataDisk()
+                            .withLun(1)
+                            .withDiskSizeGB(1)
+                            .withCaching(CachingTypes.READ_ONLY)
+                            .withCreateOption(DiskCreateOptionTypes.EMPTY)
+                            .withName(dataDiskName+random)
+                            .withVhd(new VirtualHardDisk().withUri(dataDiskVhdUri));
+                    vmStorageProfile.dataDisks().add(lun1Disk);
 
-            // ============================================================= //
-            // Delete VM
+                    System.out.println("Creating Vm -- "+ "linuxVMName"+random);
+                    Date t1 = new Date();
+                    //VirtualMachine virtualMachine =
+                    ServiceFuture<VirtualMachine> virtualMachine = azure.virtualMachines().define("linuxVMName"+random)
+                            .withRegion(location)
+                            .withExistingResourceGroup(rgName)
+                            .withHardwareProfile(vmHardwareProfile)
+                            .withOsProfile(vmOsProfile)
+                            .withNetworkProfile(vmNetworkProfile)
+                            .withStorageProfile(vmStorageProfile)
+                            .createAsync(VMCreationCallBack);
 
-            System.out.println("Delete VM: " + virtualMachine.id());
-            azure.virtualMachines().deleteByIds(virtualMachine.id());
+                    Date t2 = new Date();
+                    System.out.println(
+                            "Created VM: (took " + ((t2.getTime() - t1.getTime()) / 1000) + " seconds) ");
 
-            System.out.println("Deleted VM: " + virtualMachine.id());
+                    createdWorkers.add(virtualMachine);
+            }
+
+            createdWorkers.forEach(vmfuture ->
+            {
+                try{
+                    VirtualMachine vm = vmfuture.get();
+                    System.out.println("Created VM sucessfully"+ vm.name());
+
+                    // Print virtual machine details
+                    Utils.print(vm);
+                }
+                catch (Exception ex){
+                    System.out.println("VM creation failed.");
+                }
+            });
+
             return true;
-
         } catch (Exception f) {
 
             System.out.println(f.getMessage());
             f.printStackTrace();
 
         } finally {
-
             try {
                 System.out.println("Deleting Resource Group: " + rgName);
                 azure.resourceGroups().inner().delete(rgName);
@@ -415,7 +382,4 @@ public final class ManageVirtualMachine {
         }
     }
 
-    private ManageVirtualMachine() {
-
-    }
 }
